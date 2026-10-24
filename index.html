@@ -369,6 +369,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:var(--grad)
 .cs-stage,.cs-stage *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 .cs-stage input{-webkit-user-select:text;user-select:text}
 .cs,.cs-stage{overscroll-behavior:contain}
+.appver{text-align:center;font-size:12px;color:#8a8d9a;margin:28px 0 8px;letter-spacing:.04em}
 </style>
 </head>
 <body>
@@ -677,6 +678,8 @@ function foodSheet(){
   <form class="fs-form" data-f="addFood"><label class="f fs-name"><span>Repas / aliment</span><input name="name" maxlength="80" placeholder="ex. Poulet et riz" autocomplete="off"></label>
   <label class="f"><span>Calories (kcal)</span><input name="kcal" inputmode="decimal" autocomplete="off"></label><button class="p">Ajouter</button></form></div></div>`;
 }
+/* Numéro de version affiché en bas de l’accueil : à augmenter à chaque mise à jour. */
+const APP_VER='1.0';
 /* Couleurs pastel des blocs du programme (rose poudré, lavande, pêche, lilas, menthe, bleu poudré). */
 const BPAL=['rgba(250,214,224,.58)','rgba(226,214,248,.58)','rgba(253,224,206,.6)','rgba(240,212,240,.58)','rgba(210,238,226,.6)','rgba(212,226,250,.6)'];
 P.today=()=>{
@@ -687,7 +690,7 @@ P.today=()=>{
   <h2>Au programme</h2>
   <div class="hprog"><div class="row sb small"><span class="muted">Progression</span><b>${done} / ${B.length} activités terminées</b></div>${bar(pc)}</div>
   <div class="tl">${B.map((b,bi)=>{const open=S.exp.has(s+'|'+b.k),cur=!b.done&&B.findIndex(x=>!x.done)===bi;
-    return `<div class="blk ${b.done?'done':''} ${cur?'cur':''}" style="--bc:${BPAL[bi%BPAL.length]}"><div class="bhead"><span class="bico">${b.icon}</span><button class="btxt" data-a="bExp" data-k="${b.k}" aria-expanded="${open}"><b>${esc(b.name)}</b><small>${esc(b.desc)}${b.done?' · terminé':''}</small></button><button class="bgo" data-a="bGo" data-k="${b.k}" aria-label="${b.done?'Voir le suivi':'Lancer'}">${b.done?'✓':'▶'}</button></div>${open?`<div class="bdet">${blockDet(b,s)}</div>`:''}</div>`}).join('')}</div>${S.sheet==='food'?foodSheet():''}`;
+    return `<div class="blk ${b.done?'done':''} ${cur?'cur':''}" style="--bc:${BPAL[bi%BPAL.length]}"><div class="bhead"><span class="bico">${b.icon}</span><button class="btxt" data-a="bExp" data-k="${b.k}" aria-expanded="${open}"><b>${esc(b.name)}</b><small>${esc(b.desc)}${b.done?' · terminé':''}</small></button><button class="bgo" data-a="bGo" data-k="${b.k}" aria-label="${b.done?'Voir le suivi':'Lancer'}">${b.done?'✓':'▶'}</button></div>${open?`<div class="bdet">${blockDet(b,s)}</div>`:''}</div>`}).join('')}</div><p class="appver">Version ${APP_VER}</p>${S.sheet==='food'?foodSheet():''}`;
 };
 function planHtml(pl){
   const wo=workoutsOn(S.date),extra=wo.filter(w=>!pl.some(p=>p.w&&p.w.id===w.id));
