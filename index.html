@@ -370,6 +370,12 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:var(--grad)
 .cs-stage input{-webkit-user-select:text;user-select:text}
 .cs,.cs-stage{overscroll-behavior:contain}
 .appver{text-align:center;font-size:12px;color:#8a8d9a;margin:28px 0 8px;letter-spacing:.04em}
+
+/* v1.1 : enchaînement sans pause + flip stable sur iPhone */
+.pc.front.enter2 .pprod{animation:ppIn .45s cubic-bezier(.2,.8,.25,1)}
+.cc.fl{-webkit-backface-visibility:visible!important;backface-visibility:visible!important}
+.flip:not(.on):not(.keep) .face.f2{visibility:hidden}
+.cc.back1,.cc.back2{transition:none}
 </style>
 </head>
 <body>
@@ -679,7 +685,7 @@ function foodSheet(){
   <label class="f"><span>Calories (kcal)</span><input name="kcal" inputmode="decimal" autocomplete="off"></label><button class="p">Ajouter</button></form></div></div>`;
 }
 /* Numéro de version affiché en bas de l’accueil : à augmenter à chaque mise à jour. */
-const APP_VER='1.0';
+const APP_VER='1.1';
 /* Couleurs pastel des blocs du programme (rose poudré, lavande, pêche, lilas, menthe, bleu poudré). */
 const BPAL=['rgba(250,214,224,.58)','rgba(226,214,248,.58)','rgba(253,224,206,.6)','rgba(240,212,240,.58)','rgba(210,238,226,.6)','rgba(212,226,250,.6)'];
 P.today=()=>{
@@ -833,13 +839,16 @@ function spGo(dir){
     pv.style.transition='transform .28s cubic-bezier(.2,.8,.3,1)';pv.style.transform='none';
     setTimeout(()=>{spBusy=false;if(!D.run||!D.run.deck)return;if(d.phase==='rest')d.phase='card';else{d.pos--;d.phase='card'}S.anim=0;deckEnter();commit()},280);return}
   spBusy=true;
-  if(el){el.style.transition='transform .26s ease-in, opacity .26s ease-in';el.style.transform='translateX(130%) rotate(14deg)';el.style.opacity='0'}
+  if(el){el.style.transition='transform .26s ease-in, opacity .26s ease-in';el.style.transform='translate3d(130%,0,0) rotate(14deg)';el.style.opacity='0'}
+  const pro=d.phase==='rest'&&d.pos<C.length-1,b1=pro&&$('#sp .cc.back1'),b2=pro&&$('#sp .cc.back2');
+  if(b1){b1.style.transition='transform .26s cubic-bezier(.2,.8,.3,1),opacity .26s';b1.style.transform='none';b1.style.opacity='1'}
+  if(b2){b2.style.transition='transform .26s cubic-bezier(.2,.8,.3,1),opacity .26s';b2.style.transform='translateY(15px) scale(.95)';b2.style.opacity='.92'}
   setTimeout(()=>{spBusy=false;if(!D.run||!D.run.deck)return;
     if(d.phase==='card'){const c=C[d.pos];if(c&&!logGet(r,c))logSet(r,c,{st:'done',reps:c.reps,weight:c.weight,dur:c.dur,unit:c.e.unit});d.phase='rest'}
     else if(d.pos<C.length-1){d.pos++;d.phase='card'}
     else if(d.kind==='all'){return runAutoFinish(r,s)}
     else{r.deck=null;chStop();commit();return toast('Exercice terminé ✓')}
-    S.anim=1;deckEnter();commit()},240);
+    S.anim=b1?0:1;deckEnter();commit()},b1?270:240);
 }
 /* Calisthénie : à la fin de la dernière carte, la séance est enregistrée et l'on revient au jour de départ (comme les soins). */
 function runAutoFinish(r,s){
@@ -848,7 +857,7 @@ function runAutoFinish(r,s){
   D.run=null;chStop();S.flip=false;S.date=r.date;S.page='today';window.scrollTo(0,0);commit();toast('Séance terminée !');
 }
 function spFlip(){const f=$('#sp .flip');if(!f)return;S.flip=true;f.classList.add('on')}
-function spUnflip(){S.flip=false;const f=$('#sp .flip');if(f){f.classList.remove('on');setTimeout(commit,480)}else commit()}
+function spUnflip(){S.flip=false;const f=$('#sp .flip');if(f){f.classList.add('keep');f.classList.remove('on');setTimeout(commit,480)}else commit()}
 function bindSport(){
   const sp=$('#sp');if(!sp)return;const st=sp.querySelector('.cs-stage'),c=st&&st.querySelector('.cc.front'),pv=st&&st.querySelector('.cc.prev');
   if(c){let x0=null,dx=0,moved=false,pid=null;const W=()=>st.clientWidth||300;
@@ -1004,7 +1013,7 @@ function rView(){
   const rr=D.rrun,r=getRou(rr.rid);
   if(!r||!r.steps.length){D.rrun=null;save();return P.care()}
   const n=r.steps.length;rr.idx=Math.max(0,Math.min(+rr.idx||0,n-1));const i=rr.idx,x=r.steps[i];
-  const an=S.anim>0?'enter':'';S.anim=0;
+  const an=S.anim===2?'enter2':S.anim>0?'enter':'';S.anim=0;
   const back=[2,1].map(k=>i+k<n?pcHtml(r.steps[i+k],i+k,'back b'+k):'').join('');
   const prev=i>0?pcHtml(r.steps[i-1],i-1,'prev'):'';
   return `<div class="cs pcs" id="cs"><div class="cs-head"><div class="cs-ht"><small>${esc(r.name)} · ${i+1} / ${n}</small><h1>${esc(csTitle(x))}</h1></div><button class="cs-x" data-a="rQuit" aria-label="Quitter la routine">×</button></div>
@@ -1027,11 +1036,15 @@ function csGo(dir){
     [fc,fp].forEach(e=>{e.style.transition='transform .3s ease-out';e.style.transform=e===fp?`rotate(${PTILT}deg)`:''});
     pc.style.transition='transform .34s cubic-bezier(.2,.8,.3,1)';pc.style.transform='none';
     pp.style.transition='transform .42s cubic-bezier(.2,.8,.3,1) .05s';pp.style.transform=`rotate(${PTILT}deg)`;
-    setTimeout(()=>{csBusy=false;if(!D.rrun)return;rr.idx--;S.anim=0;commit()},470);return}
+    setTimeout(()=>{csBusy=false;if(!D.rrun)return;rr.idx--;S.anim=0;commit()},380);return}
   csBusy=true;
-  fc.style.transition='transform .34s cubic-bezier(.5,0,.75,0),opacity .34s';fc.style.transform='translateX(125%) rotate(9deg)';fc.style.opacity='0';
-  fp.style.transition='transform .42s cubic-bezier(.5,0,.75,0) .06s,opacity .42s .06s';fp.style.transform=`translateX(190%) rotate(${PTILT+12}deg)`;fp.style.opacity='0';
-  setTimeout(()=>{csBusy=false;if(!D.rrun)return;if(rr.idx>=n-1)return finishRoutine();rr.idx++;S.anim=1;commit()},470);
+  fc.style.transition='transform .3s cubic-bezier(.4,0,.8,.4),opacity .3s';fc.style.transform='translate3d(125%,0,0) rotate(9deg)';fc.style.opacity='0';
+  fp.style.transition='transform .32s cubic-bezier(.4,0,.8,.4) .02s,opacity .32s .02s';fp.style.transform=`translate3d(190%,0,0) rotate(${PTILT+12}deg)`;fp.style.opacity='0';
+  /* La carte suivante avance en même temps : pas de temps mort entre deux cartes. */
+  const b1=$('#cs .pc.b1 .pcard'),b2=$('#cs .pc.b2 .pcard');
+  if(b1){b1.style.transition='transform .3s cubic-bezier(.2,.8,.3,1),opacity .3s';b1.style.transform='none';b1.style.opacity='1'}
+  if(b2){b2.style.transition='transform .3s cubic-bezier(.2,.8,.3,1),opacity .3s';b2.style.transform='translateY(15px) scale(.94)';b2.style.opacity='.8'}
+  setTimeout(()=>{csBusy=false;if(!D.rrun)return;if(rr.idx>=n-1)return finishRoutine();rr.idx++;S.anim=b1?2:1;commit()},320);
 }
 function finishRoutine(){
   const rr=D.rrun,r=getRou(rr.rid);
@@ -1040,7 +1053,7 @@ function finishRoutine(){
   D.rrun=null;S.date=rr.date;S.page='today';window.scrollTo(0,0);commit();toast('Routine terminée !');
 }
 function bindCare(){
-  const cs=$('#cs');if(!cs)return;const st=cs.querySelector('.cs-stage'),f=st&&st.querySelector('.pc.front'),pv=st&&st.querySelector('.pc.prev');
+  const cs=$('#cs');if(!cs)return;cs.querySelectorAll('.pc.back img').forEach(im=>{try{const o=new Image();o.src=im.src;o.decode&&o.decode().catch(()=>{})}catch(_){}});const st=cs.querySelector('.cs-stage'),f=st&&st.querySelector('.pc.front'),pv=st&&st.querySelector('.pc.prev');
   if(f){const fc=f.querySelector('.pcard'),fp=f.querySelector('.pprod'),pc=pv&&pv.querySelector('.pcard'),pp=pv&&pv.querySelector('.pprod');
     let x0=null,dx=0,moved=false,pid=null;const W=()=>st.clientWidth||300;
     const prevAt=t=>{if(!pv)return;pc.style.transform=`translateX(${((1-t)*125).toFixed(1)}%) rotate(${((1-t)*12).toFixed(1)}deg)`;const tp=Math.max(0,t-.12)/.88;pp.style.transform=`translateX(${((1-tp)*150).toFixed(1)}%) rotate(${(PTILT+(1-tp)*14).toFixed(1)}deg)`};
