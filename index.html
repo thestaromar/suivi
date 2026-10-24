@@ -376,6 +376,13 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:var(--grad)
 .cc.fl{-webkit-backface-visibility:visible!important;backface-visibility:visible!important}
 .flip:not(.on):not(.keep) .face.f2{visibility:hidden}
 .cc.back1,.cc.back2{transition:none}
+
+.dg-plan{text-align:center;font-size:13px;color:#4a5068;margin:10px 0 0;padding:8px 10px;border-radius:14px;background:rgba(255,255,255,.55)}
+.dg-week{margin-top:10px}
+.dg-wt{display:flex;justify-content:space-between;font-size:12px;color:#6c7891;font-weight:600}.dg-wt b{color:#2d3447}
+.dg-wb{height:8px;border-radius:99px;background:rgba(111,157,232,.18);margin:6px 0 4px;overflow:hidden}.dg-wb i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#a9c7f7,#6f9de8)}
+.dg-week small{font-size:11px;color:#8a8d9a}
+label.chk{display:inline-flex;align-items:center;gap:4px;font-size:14px;padding:6px 10px;border:1px solid var(--bd);border-radius:99px;background:var(--card)}
 </style>
 </head>
 <body>
@@ -451,7 +458,7 @@ function defaults(){
   const P=(opts,d)=>({id:uid(),options:opts.map(s=>s.id),duration:d});
   const St=(name,product,brand,desc)=>({id:uid(),name,product:product||'',brand:brand||'',category:'',desc:desc||'',photo:''});
   const o={version:2,created:today(),
-    profile:{age:27,height:164,startWeight:77,targetWeight:57},
+    profile:{age:27,height:164,startWeight:77,targetWeight:57,weekLoss:1.2,fastDays:[3,6]},
     goals:{kcal:null,prot:null},
     sessions:[p1,p2,u1,lg,ab,ca,co,na,bo,ve,yo],
     planning:{},
@@ -461,7 +468,7 @@ function defaults(){
       {id:uid(),name:'Dimanche soir',days:[0],steps:[St('Nettoyant','','Aroma-Zone'),St('Gommage chimique','','Medicube'),St('Masque bleu','','Horace'),St('Stick tea tree'),St('Nettoyage','','CeraVe')]}],
     weights:[],body:{m:[],goals:{}},days:{},workouts:[],routineLogs:[],run:null,rrun:null,careV:1};
   applyCareCatalog(o.routines);o.careV=2;
-  o.planning=buildPlanning(o.sessions);o.planV=3;fillSport(o.sessions);applyRests(o.sessions);o.sportV=1;o.fixV=1;return o;
+  o.planning=buildPlanning(o.sessions);o.planV=4;fillSport(o.sessions);applyRests(o.sessions);o.sportV=1;o.fixV=1;return o;
 }
 /* Planning hebdomadaire, construit à partir des séances existantes (retrouvées par leur nom). */
 function buildPlanning(ss){
@@ -470,9 +477,9 @@ function buildPlanning(ss){
   const L=(...e)=>e.filter(Boolean);
   return {1:L(E(['Course à pied'],30),E(['Push 1'],60,'Push 1'),E(['Calisthénie'],30)),
     2:L(E(['Pull 1'],60,'Pull'),E(['Boxe'],90)),
-    3:L(E(['Natation'],30),E(['Push 2'],60,'Push 2'),E(['Calisthénie'],30)),
+    3:L(E(['Natation'],30),E(['Calisthénie'],30)),
     4:L(E(['Pull 1'],60,'Pull'),E(['Boxe'],90)),
-    5:L(E(['Natation'],30),E(['Calisthénie'],30)),
+    5:L(E(['Natation'],30),E(['Push 2'],60,'Push 2'),E(['Calisthénie'],30)),
     6:L(E(['Legs & Abs'],90,'Legs & Abs intense')),
     0:L(E(['Course à pied'],30),E(['Yoga'],60))};
 }
@@ -512,7 +519,12 @@ function load(){
     applyRests(D.sessions);if(D.run&&D.run.sid===(p2&&p2.id))D.run=null;D.fixV=1}
   if((D.careV||0)<2&&Array.isArray(D.routines)){applyCareCatalog(D.routines);D.careV=2}
   if((D.planV||0)<3&&Array.isArray(D.sessions)){D.planning=buildPlanning(D.sessions);D.planV=3}
+  /* v1.2 : Push 2 passe du mercredi au vendredi (entre natation et calisthénie). */
+  if((D.planV||0)<4&&D.planning){const P2=D.sessions.find(x=>x.name==='Push 2'),w=D.planning[3]||[],i=w.findIndex(q=>q.label==='Push 2'||(P2&&q.options.includes(P2.id)));
+    if(i>=0){const q=w.splice(i,1)[0],f=D.planning[5]=D.planning[5]||[];if(!f.some(x=>x.options.some(o=>q.options.includes(o)))){const n=f.findIndex(x=>/natation/i.test((getSes(x.options[0])||{}).name||''));f.splice(n>=0?n+1:0,0,q)}}
+    D.planV=4}
   const d=defaults();for(const k in d)if(D[k]===undefined)D[k]=d[k];
+  if(D.profile&&D.profile.weekLoss===undefined){D.profile.weekLoss=1.2;D.profile.fastDays=[3,6]}
   if(!D.body.m)D.body.m=[];if(!D.body.goals)D.body.goals={};
   save();
 }
@@ -648,7 +660,6 @@ function weekBar(){
     return `<button class="wday ${x===S.date?'sel':''} ${x===t?'tod':''}" data-a="setDay" data-v="${x}" aria-label="${esc(fmtD(x))}"><small>${WD[d.getDay()]}</small><b>${d.getDate()}</b></button>`}).join('')}<button class="wnav" data-a="dNav" data-v="7" aria-label="Semaine suivante">›</button></div>`;
 }
 /* Jauge de déficit calorique (visuel seulement : les valeurs seront branchées plus tard). */
-const DEF_GOAL=1200;
 /* Énergie de la journée : base = métabolisme de base (Mifflin-St Jeor, homme) avec le dernier poids connu à cette date.
    Déficit = base + calories brûlées au sport − calories consommées. */
 function bmrOn(s){const W=D.weights.filter(w=>w.date<=s).sort(byDate),kg=W.length?+W[W.length-1].value:+D.profile.startWeight;
@@ -664,15 +675,39 @@ function wKcal(w){if(has(w.kcal))return +w.kcal;const kg=lastKg();
   if(/course/i.test(w.name||'')&&has(w.distance)&&+w.distance>0)return Math.round(kg*w.distance);
   const met=w.type==='muscu'?5:w.type==='cali'?6:((METS.find(m=>m[0].test(w.name||''))||[0,5])[1]);
   const min=(w.type==='cardio'?+w.duration:(plannedMin(w)||+w.duration))||0;return Math.round(met*kg*min/60)}
-function dayEnergy(s){const b=bmrOn(s),burned=workoutsOn(s).reduce((a,w)=>a+wKcal(w),0),eaten=tot(s).kcal;
-  return {base:b.v,kg:b.kg,burned,eaten,deficit:Math.round(b.v+burned-eaten),goal:DEF_GOAL}}
+function rawDef(s){const b=bmrOn(s),burned=workoutsOn(s).reduce((a,w)=>a+wKcal(w),0),eaten=tot(s).kcal;
+  return {base:b.v,kg:b.kg,burned,eaten,deficit:Math.round(b.v+burned-eaten)}}
+/* Objectif hebdomadaire : perte visée (kg/semaine) × 7 700 kcal, semaine du lundi au dimanche.
+   Jours de jeûne : on ne mange pas, le déficit visé = base + sport prévu.
+   Autres jours (option B) : même quantité mangée chaque jour, calculée pour atteindre l'objectif de la semaine.
+   Rattrapage : les jours déjà passés comptent pour leur déficit réel ; l'écart est réparti sur les jours restants.
+   Plancher de sécurité : jamais moins de 1 200 kcal à manger un jour sans jeûne. */
+const KCAL_KG=7700,MIN_EAT=1200;
+const isFast=s=>(D.profile.fastDays||[]).includes(pd(s).getDay());
+const weekStart=s=>addD(s,-((pd(s).getDay()+6)%7));
+function planBurn(s){const kg=bmrOn(s).kg;return (D.planning[pd(s).getDay()]||[]).reduce((a,q)=>{const x=getSes(q.options[0]);if(!x)return a;
+  const met=x.type==='muscu'?5:x.type==='cali'?6:((METS.find(m=>m[0].test(x.name||''))||[0,5])[1]);return a+met*kg*(+q.duration||0)/60},0)}
+function weekPlan(s){const w0=weekStart(s),days=[...Array(7)].map((_,i)=>addD(w0,i)),T=(+D.profile.weekLoss||0)*KCAL_KG,td=today();
+  const E=d=>bmrOn(d).v+planBurn(d);
+  const intakeFor=(rem,need)=>{const fast=rem.filter(isFast),eat=rem.filter(d=>!isFast(d)),fs=fast.reduce((a,d)=>a+E(d),0),ee=eat.reduce((a,d)=>a+E(d),0);return eat.length?Math.max(MIN_EAT,(ee-(need-fs))/eat.length):0};
+  /* Jour passé sans aucun aliment noté (hors jeûne) : considéré comme conforme au plan de début de semaine. */
+  const I0=intakeFor(days,T),real=d=>isFast(d)||getDay(d).food.length?rawDef(d).deficit:Math.round(E(d)-I0);
+  /* Jours passés : réel. Jours entre aujourd'hui et le jour affiché (futur) : supposés conformes au plan actuel. */
+  const cut=s<td?s:td;let done=0;days.forEach(d=>{if(d<cut)done+=real(d)});const doneReal=done;
+  if(s>td){const In=intakeFor(days.filter(d=>d>=td),T-done);days.forEach(d=>{if(d>=td&&d<s)done+=Math.round(isFast(d)?E(d):E(d)-In)})}
+  const I=intakeFor(days.filter(d=>d>=s),T-done),f=isFast(s);
+  const sofar=s<=td?done+rawDef(s).deficit:(td>=days[0]?doneReal+rawDef(td).deficit:0);
+  return {goal:Math.max(0,Math.round(f?E(s):E(s)-I)),intake:f?0:Math.round(I),fast:f,weekT:Math.round(T),weekDone:Math.round(sofar)}}
+function dayEnergy(s){const r=rawDef(s),w=weekPlan(s);return {...r,...w}}
 function deficitGauge(v){
-  const R=92,L=2*Math.PI*R*240/360,pc=Math.max(0,Math.min(1,(v.deficit||0)/v.goal)),P=a=>[(110+R*Math.cos(a*Math.PI/180)).toFixed(2),(110+R*Math.sin(a*Math.PI/180)).toFixed(2)];
+  const R=92,L=2*Math.PI*R*240/360,pc=Math.max(0,Math.min(1,(v.deficit||0)/(v.goal||1))),P=a=>[(110+R*Math.cos(a*Math.PI/180)).toFixed(2),(110+R*Math.sin(a*Math.PI/180)).toFixed(2)];
   const [x0,y0]=P(150),[x1,y1]=P(30),[kx,ky]=P(150+240*pc),arc=`M ${x0} ${y0} A ${R} ${R} 0 1 1 ${x1} ${y1}`;
   return `<div class="dgauge glass"><div class="dg-title">Déficit calorique</div>
   <div class="dg-mid"><svg viewBox="0 0 220 170" aria-hidden="true"><defs><linearGradient id="dgg" x1="0" x2="1"><stop offset="0" stop-color="#a9c7f7"/><stop offset="1" stop-color="#6f9de8"/></linearGradient></defs><path d="${arc}" class="dg-track"/><path d="${arc}" class="dg-fill" style="stroke-dasharray:${(L*pc).toFixed(1)} ${L.toFixed(1)};opacity:${pc>0?1:0}"/>${pc>0?`<circle cx="${kx}" cy="${ky}" r="6.5" class="dg-knob"/>`:''}</svg>
   <div class="dg-c"><b>${fmt(Math.abs(v.deficit))}</b><span class="dg-lab">${v.deficit<0?'Excédent':'Déficit'} · ${v.deficit>=v.goal?'objectif atteint ✓':'objectif pas encore atteint'}</span></div></div>
-  <div class="dg-row"><div><i>🔥</i><span>Brûlé<b>${fmt(v.burned)}</b></span></div><div><i>🎯</i><span>Objectif<b>${fmt(v.goal)}</b></span></div><div><i>🍴</i><span>Consommé<b>${fmt(v.eaten)}</b></span></div></div></div>`;
+  <div class="dg-row"><div><i>🔥</i><span>Brûlé<b>${fmt(v.burned)}</b></span></div><div><i>🎯</i><span>Objectif<b>${fmt(v.goal)}</b></span></div><div><i>🍴</i><span>Consommé<b>${fmt(v.eaten)}</b></span></div></div>
+  <div class="dg-plan">${v.fast?'🌙 <b>Jour de jeûne</b> · rien à manger':`🍽️ À manger aujourd’hui : <b>≈ ${fmt(v.intake)} kcal</b>`}</div>
+  ${v.weekT?`<div class="dg-week"><div class="dg-wt"><span>Semaine</span><b>${fmt(Math.max(0,v.weekDone))} / ${fmt(v.weekT)} kcal</b></div><div class="dg-wb"><i style="width:${Math.max(0,Math.min(100,v.weekDone/v.weekT*100)).toFixed(1)}%"></i></div><small>Objectif ≈ ${fmt(+D.profile.weekLoss)} kg cette semaine</small></div>`:''}</div>`;
 }
 /* Volet Alimentation qui s'ouvre en bas de l'accueil. */
 function foodSheet(){
@@ -685,7 +720,7 @@ function foodSheet(){
   <label class="f"><span>Calories (kcal)</span><input name="kcal" inputmode="decimal" autocomplete="off"></label><button class="p">Ajouter</button></form></div></div>`;
 }
 /* Numéro de version affiché en bas de l’accueil : à augmenter à chaque mise à jour. */
-const APP_VER='1.1';
+const APP_VER='1.3';
 /* Couleurs pastel des blocs du programme (rose poudré, lavande, pêche, lilas, menthe, bleu poudré). */
 const BPAL=['rgba(250,214,224,.58)','rgba(226,214,248,.58)','rgba(253,224,206,.6)','rgba(240,212,240,.58)','rgba(210,238,226,.6)','rgba(212,226,250,.6)'];
 P.today=()=>{
@@ -1098,7 +1133,7 @@ P.settings=()=>{
     <div class="btns">${ud('rouMv',r.id)}<button class="s" data-a="rouEdit" data-id="${r.id}">Modifier</button><button class="s d" data-a="rouDel" data-id="${r.id}">Supprimer</button></div>
     ${r.steps.map((x,i)=>`<div class="li"><span>${i+1}. ${x.photo?'🖼️ ':''}${esc(x.name)}<br><small class="muted">${esc([x.product,x.brand,x.category].filter(Boolean).join(' · '))}</small></span><span class="acts">${ud('stepMv',x.id,`data-r="${r.id}"`)}<button class="s" data-a="stepEdit" data-r="${r.id}" data-id="${x.id}">✎</button><button class="s d" data-a="stepDel" data-r="${r.id}" data-id="${x.id}">✕</button></span></div>`).join('')}<button class="s p" data-a="stepEdit" data-r="${r.id}" style="margin-top:6px">+ Étape</button></details>`).join('');
   return `<div class="row sb" style="margin-bottom:8px"><h2 style="margin:0">Réglages</h2><button class="cs-x xs" data-a="go" data-p="today" aria-label="Retour à l’accueil">×</button></div>`+
-  sec('profil','👤 Profil et poids',`<form data-f="profile"><div class="grid2">${F('Âge',N('age',pr.age))}${F('Taille (cm)',N('height',pr.height))}${F('Poids de départ (kg)',N('startWeight',pr.startWeight,'required'))}${F('Poids cible (kg)',N('targetWeight',pr.targetWeight,'required'))}</div><button class="p">Enregistrer</button></form>`)+
+  sec('profil','👤 Profil et poids',`<form data-f="profile"><div class="grid2">${F('Âge',N('age',pr.age))}${F('Taille (cm)',N('height',pr.height))}${F('Poids de départ (kg)',N('startWeight',pr.startWeight,'required'))}${F('Poids cible (kg)',N('targetWeight',pr.targetWeight,'required'))}${F('Perte visée (kg / semaine)',N('weekLoss',pr.weekLoss))}</div><div class="f"><span>Jours de jeûne</span><div class="btns">${[1,2,3,4,5,6,0].map(k=>`<label class="chk"><input type="checkbox" name="fast" value="${k}" ${(pr.fastDays||[]).includes(k)?'checked':''}> ${['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][k]}</label>`).join('')}</div></div><button class="p">Enregistrer</button></form>`)+
   sec('obj','🎯 Objectifs alimentaires',`<form data-f="goals"><div class="grid2">${F('Calories par jour (kcal)',N('kcal',g.kcal))}${F('Protéines par jour (g)',N('prot',g.prot))}</div><button class="p">Enregistrer</button></form>`)+
   sec('ses','🏋️ Séances et exercices',`${sessions}<div class="btns"><button class="p s" data-a="sesEdit">+ Nouvelle séance</button></div>`)+
   sec('plan','📅 Planning hebdomadaire',`<p class="muted small">Une activité planifiée n’est jamais comptée comme réalisée sans enregistrement. Plusieurs séances sur une ligne = au choix (ex. boxe ou calisthénie).</p>${plan}`)+
@@ -1259,7 +1294,7 @@ const FS={
   bmQuick:fd=>{const z=fd.get('z'),v=nv(fd,'value','Mesure',{req:true,...zLim(z)}),o={id:uid(),ts:Date.now(),date:S.date,value:v};if(z==='poids')D.weights.push(o);else D.body.m.push({...o,zone:z});toast('Mesure enregistrée');commit()},
   addWeight:fd=>{D.weights.push({id:uid(),ts:Date.now(),date:dv(fd,'date'),value:nv(fd,'value','Poids',{req:true,min:20,max:400})});toast('Pesée enregistrée');commit()},
   well:fd=>{const o={},q=fd.get('sleepQ');if(q)o.sleepQ=+q;const sl=nv(fd,'sleepH','Durée du sommeil',{min:0,max:24});if(sl!==null)o.sleepH=sl;const n=tv(fd,'notes');if(n)o.notes=n;dayW(S.date).well=o;toast('Enregistré');commit()},
-  profile:fd=>{Object.assign(D.profile,{age:nv(fd,'age','Âge',{min:1,max:120,int:true}),height:nv(fd,'height','Taille',{min:50,max:250}),startWeight:nv(fd,'startWeight','Poids de départ',{req:true,min:20,max:400}),targetWeight:nv(fd,'targetWeight','Poids cible',{req:true,min:20,max:400})});toast('Profil enregistré');commit()},
+  profile:fd=>{Object.assign(D.profile,{age:nv(fd,'age','Âge',{min:1,max:120,int:true}),height:nv(fd,'height','Taille',{min:50,max:250}),startWeight:nv(fd,'startWeight','Poids de départ',{req:true,min:20,max:400}),targetWeight:nv(fd,'targetWeight','Poids cible',{req:true,min:20,max:400}),weekLoss:nv(fd,'weekLoss','Perte visée',{min:0,max:3})||0,fastDays:fd.getAll('fast').map(Number)});toast('Profil enregistré');commit()},
   goals:fd=>{Object.assign(D.goals,{kcal:nv(fd,'kcal','Calories',{min:0,max:10000}),prot:nv(fd,'prot','Protéines',{min:0,max:1000})});toast('Objectifs enregistrés');commit()},
 };
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el||el.disabled)return;const f=A[el.dataset.a];if(!f)return;e.preventDefault();f(el.dataset,el)});
