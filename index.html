@@ -904,6 +904,8 @@ P.settings=()=>{
   sec('ses','🏋️ Séances et exercices',`${sessions}<div class="btns"><button class="p s" data-a="sesEdit">+ Nouvelle séance</button></div>`)+
   sec('plan','📅 Planning hebdomadaire',`<p class="muted small">Une activité planifiée n’est jamais comptée comme réalisée sans enregistrement. Plusieurs séances sur une ligne = au choix (ex. boxe ou calisthénie).</p>${plan}`)+
   sec('rou','🧴 Routines de soins',`${routines}<div class="btns"><button class="p s" data-a="rouEdit">+ Nouvelle routine</button></div>`)+
+  sec('backup','💾 Sauvegarde',`<p class="muted small">Vos données sont enregistrées uniquement sur cet appareil. Faites une sauvegarde régulièrement et rangez le fichier dans iCloud Drive.${D.lastBackup?` Dernière sauvegarde : ${esc(fmtD(D.lastBackup,{day:'numeric',month:'long',year:'numeric'}))}.`:' Aucune sauvegarde pour le moment.'}</p>
+  <div class="btns"><button class="p" data-a="backupSave">Sauvegarder mes données</button><label class="f" style="margin:0"><span>Restaurer une sauvegarde</span><input type="file" accept=".json,application/json" data-c="backupLoad"></label></div>`)+
   sec('data','🗑️ Réinitialisation',`<p class="muted small">Les données sont enregistrées localement dans ce navigateur, sur cet appareil.</p><button class="d" data-a="resetAll">Réinitialiser toutes les données</button>`);
 };
 
@@ -1039,10 +1041,18 @@ const A={
     <div class="f"><span>Photo du produit (facultative)</span><input type="file" accept="image/*" data-c="pickPhoto"><input type="hidden" name="photo" value="${esc(o.photo)}"><img class="phprev" src="${esc(o.photo)}" alt="" ${o.photo?'':'hidden'}>${o.photo?'<label class="ck"><input type="checkbox" name="rmPhoto"><span>Supprimer la photo</span></label>':''}</div>`,
     fd=>{const y={name:tv(fd,'name','Nom',true),product:tv(fd,'product'),brand:tv(fd,'brand'),category:tv(fd,'category'),desc:tv(fd,'desc'),photo:fd.get('rmPhoto')?'':String(fd.get('photo')||'')};if(x)Object.assign(x,y);else r.steps.push({id:uid(),...y})})},
   stepDel:d=>{const r=getRou(d.r);if(confirm('Supprimer cette étape ?')){r.steps=r.steps.filter(x=>x.id!==d.id);commit()}},
+  backupSave:()=>{D.lastBackup=today();save();const name=`suivi-sauvegarde-${today()}.json`,blob=new Blob([JSON.stringify({app:'suivi-quotidien',saved:new Date().toISOString(),data:D})],{type:'application/json'});
+    const file=typeof File==='function'?new File([blob],name,{type:'application/json'}):null;
+    if(file&&navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:'Sauvegarde suivi'}).then(()=>toast('Sauvegarde prête')).catch(()=>{});render();return}
+    const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);toast('Sauvegarde téléchargée');render()},
   resetAll:()=>{if(confirm('Supprimer définitivement toutes les données et revenir aux valeurs initiales ?')&&confirm('Dernière confirmation : cette action est irréversible. Continuer ?')){tStop();D=defaults();S.date=today();S.page='today';commit();toast('Données réinitialisées')}},
 };
 const C={
   setDate:el=>{if(el.value){S.date=el.value;render()}},
+  backupLoad:el=>{const f=el.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{let o;try{o=JSON.parse(rd.result);o=o&&o.data?o.data:o}catch(e){o=null}
+    if(!o||typeof o!=='object'||!Array.isArray(o.sessions)||!o.days){el.value='';return alert('Ce fichier n’est pas une sauvegarde de l’application.')}
+    if(!confirm('Remplacer toutes les données actuelles par cette sauvegarde ?')){el.value='';return}
+    D=o;const d=defaults();for(const k in d)if(D[k]===undefined)D[k]=d[k];D.run=null;D.rrun=null;chStop();S.date=today();S.page='today';commit();toast('Sauvegarde restaurée')};rd.readAsText(f)},
   pickPhoto:el=>{const f=el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const sc=Math.min(1,600/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*sc);c.height=Math.round(im.height*sc);c.getContext('2d').drawImage(im,0,0,c.width,c.height);const u=c.toDataURL('image/jpeg',.8);el.form.elements.photo.value=u;const p=el.form.querySelector('.phprev');p.src=u;p.hidden=false};im.onerror=()=>alert('Image illisible.');im.src=r.result};r.readAsDataURL(f)},
 };
 const FS={
